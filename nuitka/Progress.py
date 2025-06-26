@@ -14,7 +14,7 @@ from contextlib import contextmanager
 
 from nuitka import Tracing
 from nuitka.PythonVersions import isPythonWithGil
-from nuitka.Tracing import general
+from nuitka.Tracing import general, getDisableStylesCode, wrapWithStyles
 from nuitka.utils.Importing import importFromInlineCopy
 from nuitka.utils.ThreadedExecutor import RLock
 from nuitka.utils.Utils import isWin32Windows, withNoExceptions
@@ -27,6 +27,9 @@ _tqdm = None
 _colorama = None
 
 _uses_threading = False
+
+_progress_info_style = ("bold", "blue")
+_progress_percentage_style = ("bold", "green")
 
 
 def enableThreading():
@@ -51,6 +54,12 @@ class NuitkaProgressBarTqdm(object):
         # No progress yet.
         self.progress = 0
 
+        bar_format = "%s%s|{bar:25}| {n_fmt}/{total_fmt}{unit}%s" % (
+            wrapWithStyles("{desc}", styles=_progress_info_style),
+            wrapWithStyles("{percentage:3.1f}%", styles=_progress_percentage_style),
+            wrapWithStyles("{postfix}", styles=_progress_info_style),
+        )
+
         # Render immediately with 0 progress, and setting disable=None enables tty detection.
         self.tqdm = _tqdm(
             iterable=iterable,
@@ -62,7 +71,7 @@ class NuitkaProgressBarTqdm(object):
             disable=None,
             leave=False,
             dynamic_ncols=True,
-            bar_format="{desc}{percentage:3.1f}%|{bar:25}| {n_fmt}/{total_fmt}{unit}{postfix}",
+            bar_format=bar_format,
         )
 
         self.tqdm.set_description(stage)
@@ -117,15 +126,23 @@ class NuitkaProgressBarRich(object):
         self.item = None
 
         self.rich_progress = _rich_progress.Progress(
-            _rich_progress.TextColumn("[bold blue]{task.description}", justify="right"),
+            _rich_progress.TextColumn(
+                wrapWithStyles("{task.description}", styles=_progress_info_style),
+            ),
             _rich_progress.BarColumn(bar_width=25),
-            _rich_progress.TextColumn("[progress.percentage]{task.percentage:>3.1f}%"),
+            _rich_progress.TextColumn(
+                wrapWithStyles(
+                    "{task.percentage:>3.1f}%", styles=_progress_percentage_style
+                )
+            ),
             "|",
             _rich_progress.TextColumn(
                 "{task.completed:>0.0f}/{task.total:>0.0f}{task.fields[unit_label]}"
             ),
             _rich_progress.TextColumn("{task.fields[postfix_bullet]}"),
-            _rich_progress.TextColumn("[bold blue]{task.fields[postfix]}"),
+            _rich_progress.TextColumn(
+                wrapWithStyles("{task.fields[postfix]}", styles=_progress_info_style)
+            ),
             refresh_per_second=10000,
             transient=True,
             redirect_stdout=False,
@@ -372,6 +389,9 @@ def closeProgressBar():
 
         Tracing.progress.close()
         Tracing.progress = None
+
+        if sys.stdout.isatty():
+            Tracing.my_print(getDisableStylesCode(), end="")
 
         return result
 

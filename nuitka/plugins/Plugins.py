@@ -1064,6 +1064,9 @@ implicit import encountered."""
 
     @classmethod
     def onModuleUsageLookAhead(cls, module_name, module_filename, module_kind):
+        if module_name.getTopLevelPackageName() == "":
+            return
+
         if module_name in cls.module_usage_looked_ahead_cache:
             return
 

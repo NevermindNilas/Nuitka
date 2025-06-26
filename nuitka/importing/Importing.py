@@ -156,6 +156,9 @@ def makeParentModuleUsagesAttempts(module_usage_attempt):
     result = []
 
     for parent_package_name in module_usage_attempt.module_name.getParentPackageNames():
+        if parent_package_name.getTopLevelPackageName() == "":
+            break
+
         (
             _parent_package_name,
             parent_module_filename,
